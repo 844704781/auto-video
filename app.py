@@ -172,9 +172,23 @@ def run_task(task):
 
         # 将新的事件循环设置为当前线程的事件循环
         asyncio.set_event_loop(new_loop)
+        if task.size is not None:
+            size = task.size.split("*")
+            if len(size) != 2:
+                width = size[0]
+                height = size[0]
+            else:
+                width = size[0]
+                height = size[1]
 
+            width = int(width)
+            height = int(height)
+        else:
+            width = None
+            height = None
         # 同步调用 run_task 函数
-        video_path = new_loop.run_until_complete(VideoProcessor(segments=segments, task_id=task.task_id).run())
+        video_path = new_loop.run_until_complete(
+            VideoProcessor(segments=segments, task_id=task.task_id, width=width, height=height).run())
     except CustomException as e:
         logger.error(f"【{task.task_id}】Execute task end,error:{e.message}")
         return ResultDo(e.code, e.message)
@@ -262,9 +276,9 @@ def main():
 
     sync_task_table_structure()
     scheduler = BackgroundScheduler()
-   # scheduler.add_job(fetch, 'interval', seconds=1, next_run_time=datetime.now())
-   # scheduler.add_job(callback, 'interval', seconds=10, next_run_time=datetime.now())
-    scheduler.add_job(execute_task, 'interval', seconds=1, next_run_time=datetime.now())
+    # scheduler.add_job(fetch, 'interval', seconds=1, next_run_time=datetime.now())
+    # scheduler.add_job(callback, 'interval', seconds=10, next_run_time=datetime.now())
+    scheduler.add_job(execute_task, 'interval', seconds=60, next_run_time=datetime.now())
     scheduler.start()
     event = threading.Event()
 
