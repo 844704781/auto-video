@@ -1,6 +1,14 @@
+import configparser
+
 from common.logger_config import logger
 from connector.base_connector import BaseConnector
 from common.custom_exception import CustomException
+import os
+
+import oss2
+from oss2 import SizedFileAdapter
+from settings import PROJECT_ROOT
+from common.error_code import ErrorCode
 
 
 class TweetConnector(BaseConnector):
@@ -47,6 +55,31 @@ class TweetConnector(BaseConnector):
         if resp.get('code') != 0:
             raise CustomException(resp.get('code'), resp.get('message'))
         return resp.get('data')
+
+    def upload(self, file_name):
+
+        config = configparser.ConfigParser(interpolation=None)
+        config.read(PROJECT_ROOT + '/config.ini')
+
+        access_key_id = config['ALI_YUN']['access_key_id']
+        access_key_secret = config['ALI_YUN']['access_key_secret']
+        bucket_name = config['ALI_YUN']['bucket_name']
+        endpoint = config['ALI_YUN']['endpoint']
+        directory = config['ALI_YUN']['directory']
+        oss_url = config['ALI_YUN']['oss_url']
+        auth = oss2.Auth(access_key_id, access_key_secret)
+        bucket = oss2.Bucket(auth, endpoint, bucket_name)
+
+        key = f'{directory}/{file_name}'
+        local_file_path = f'resource/videos/{file_name}'
+        try:
+            with open(local_file_path, 'rb') as fileobj:
+                put_result = bucket.put_object(key, SizedFileAdapter(fileobj, os.path.getsize(local_file_path)))
+        except Exception as e:
+            logger.error("上传出错", e)
+            raise CustomException(ErrorCode.TIME_OUT, '上传出错')
+        if put_result.status == 200:
+            return f'{oss_url}/{directory}/{file_name}'
 
 
 class Segment:

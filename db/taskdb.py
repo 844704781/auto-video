@@ -35,6 +35,7 @@ class Task(BaseModel):
                f"status_is_sync={self.status_is_sync}, title={self.title}, size={self.size}, " \
                f"shots={self.shots}, create_time={self.create_time}, update_time={self.update_time})"
 
+
 # 检查模型类与数据库表结构的差异，并更新数据库表
 def sync_table_structure():
     try:
@@ -259,6 +260,19 @@ class TaskMapper:
     def find_unsync_task():
         task = Task.select().where((Task.status_is_sync == 0)).first()
         return task
+
+    @staticmethod
+    def set_video_url(task_id, video_url):
+        if video_url is None:
+            return
+        try:
+            task = Task.select().where((Task.task_id == task_id) & (Task.status != Status.SUCCESS)).first()
+            if task is None:
+                return
+            task.video_url = video_url
+            task.save()
+        except Task.DoesNotExist:
+            logger.info(f"Task with ID {task_id} not found or already in SUCCESS status.")
 
 
 # 创建表

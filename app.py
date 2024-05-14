@@ -37,6 +37,14 @@ config.read('./config.ini')
 callback_thread_count = 1
 video_processor_thread_count = 1
 
+if config['SERVICE'] is not None:
+    if (config['SERVICE']['callback_max_thread_count'] is not None
+            or len(config['SERVICE']['callback_max_thread_count'] is not None) != 0):
+        callback_thread_count = int(config['SERVICE']['callback_max_thread_count']
+                                    or len(config['SERVICE']['callback_max_thread_count']) != 0)
+    if config['SERVICE']['video_processor_count'] is not None:
+        video_processor_thread_count = int(config['SERVICE']['video_processor_count'])
+
 callbackThreadPool = concurrent.futures.ThreadPoolExecutor(max_workers=callback_thread_count)
 videoThreadPool = concurrent.futures.ThreadPoolExecutor(max_workers=video_processor_thread_count)
 
@@ -53,11 +61,7 @@ def check_task(task):
 
 
 def fetch():
-    tasks = tweetConnector.fetch(1)
-    # for task in tasks:
-    # if not check_task(task):
-    #     logger.info(f"遇到无效任务,无视中...,task:{task}")
-    #     return
+    tasks = tweetConnector.fetch(10)
     if len(tasks) == 0:
         return
     taskMapper.bulk_insert_tasks(tasks)
@@ -159,6 +163,14 @@ def is_threadpool_idle(threadpool):
     return active_threads < thread_count
 
 
+def checking():
+    logger.debug("checking...")
+    tasks = taskMapper.get_doing_tasks()
+    for task in tasks:
+        # 下次重试
+        taskMapper.set_status(task.task_id, Status.FAIL)
+
+
 def run_task(task):
     logger.debug(f"【{task.task_id}】Execute task start")
 
@@ -187,8 +199,10 @@ def run_task(task):
             width = None
             height = None
         # 同步调用 run_task 函数
+        logger.info(f"视频生成中,task_id:{task.task_id}")
         video_path = new_loop.run_until_complete(
             VideoProcessor(segments=segments, task_id=task.task_id, width=width, height=height).run())
+        logger.info(f"视频生成成功,task_id:{task.task_id}")
     except CustomException as e:
         logger.error(f"【{task.task_id}】Execute task end,error:{e.message}")
         return ResultDo(e.code, e.message)
@@ -210,11 +224,13 @@ def execute_task():
             shots = task.shots
             json_data = json.loads(shots)
             segments = [ISegment(**segment_data) for segment_data in json_data]
+            logger.info("开始下载图片")
             for segment in segments:
                 if not string_utils.is_full_string(segment.image_path):
                     segment.image_path = download_image(segment.image_url)
                 if not string_utils.is_full_string(segment.audio_path):
                     segment.audio_path = download_audio(segment.audio_url)
+            logger.info("图片下载成功")
             serialized_segments = [segment.segment_to_dict() for segment in segments]
             shots = json.dumps(serialized_segments)
             task.shots = shots
@@ -241,6 +257,11 @@ def execute_task():
                 task.status = Status.SUCCESS.value
                 task.video_path = execute_result.data
                 taskMapper.set_success(task.task_id, video_path=execute_result.data)
+                logger.info(f"图片上传中,task_id:{task.task_id}")
+                video_url = tweetConnector.upload(f"{task.task_id}.mp4")
+                task.video_url = video_url
+                taskMapper.set_video_url(task.task_id, video_url=task.video_url)
+                logger.info(f"图片上传成功,task_id:{task.task_id},video_url:{task.video_url}")
                 _callback(task)
             elif execute_result.code == ErrorCode.TASK_COMPLETED:
                 # 任务已完成，什么都不需要做
@@ -265,7 +286,7 @@ def execute_task():
         is_threadpool_idle(videoThreadPool)
         taskMapper.set_status(_task.task_id, Status.DOING.value)
         videoThreadPool.submit(execute_task_func, _task)
-        time.sleep(10)
+        time.sleep(5)
 
 
 def main():
@@ -274,12 +295,12 @@ def main():
     # 在项目第一次启动时创建表
     if not is_task_table_created():
         create_task_tables()
-
+    checking()
     sync_task_table_structure()
     scheduler = BackgroundScheduler()
-    # scheduler.add_job(fetch, 'interval', seconds=1, next_run_time=datetime.now())
-    # scheduler.add_job(callback, 'interval', seconds=10, next_run_time=datetime.now())
-    scheduler.add_job(execute_task, 'interval', seconds=60, next_run_time=datetime.now())
+    scheduler.add_job(fetch, 'interval', seconds=10, next_run_time=datetime.now())
+    scheduler.add_job(callback, 'interval', seconds=10, next_run_time=datetime.now())
+    scheduler.add_job(execute_task, 'interval', seconds=30, next_run_time=datetime.now())
     scheduler.start()
     event = threading.Event()
 
