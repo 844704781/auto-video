@@ -41,7 +41,7 @@ class VideoProcessor:
     def fl_up(self, height, width, gf, t):
         speed = self.speed
         height = height
-        size = int((height * 0.7) // 1)  # 1152
+        size = int((height * 0.8) // 1)  # 1152
 
         image = gf(t)
         start_index = int(speed * t)  # 0
@@ -121,7 +121,7 @@ class VideoProcessor:
 
     async def run(self):
         clips = []
-        _fls = [self.fl_up, self.fl_down]
+        _fls = [self.fl_up, self.fl_up]
         # 获取图片最大宽度和高度
         images = []
         for segment in self.segments:
@@ -155,7 +155,7 @@ class VideoProcessor:
             # 调整图片尺寸
             width = img_clip.size[0]
             height = img_clip.size[1]
-
+            print(f"当前尺寸,{width},{height}")
             img_clip = img_clip.set_duration(audio_clip.duration + 0.1) \
                 .fl(lambda gf, t: _fl(height, width, gf, t), apply_to=['mask'])
 

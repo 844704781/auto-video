@@ -201,6 +201,7 @@ def run_task(task):
 
 def execute_task():
     def execute_task_func(task):
+        logger.info(f"当前任务:{task.task_id}")
         try:
             if not check_task(task):
                 logger.info(f"遇到无效任务,删除中...,task:{task}")

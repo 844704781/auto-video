@@ -30,6 +30,10 @@ class Task(BaseModel):
     create_time = peewee.IntegerField(default=int(datetime.datetime.now().timestamp()))
     update_time = peewee.IntegerField(default=int(datetime.datetime.now().timestamp()))
 
+    def __str__(self):
+        return f"Task(id={self.id}, task_id={self.task_id}, progress={self.progress}, status={self.status}, " \
+               f"status_is_sync={self.status_is_sync}, title={self.title}, size={self.size}, " \
+               f"shots={self.shots}, create_time={self.create_time}, update_time={self.update_time})"
 
 # 检查模型类与数据库表结构的差异，并更新数据库表
 def sync_table_structure():
