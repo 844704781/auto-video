@@ -256,11 +256,11 @@ def execute_task():
                 # 成功
                 task.status = Status.SUCCESS.value
                 task.video_path = execute_result.data
-                taskMapper.set_success(task.task_id, video_path=execute_result.data)
                 logger.info(f"图片上传中,task_id:{task.task_id}")
                 video_url = tweetConnector.upload(f"{task.task_id}.mp4")
                 task.video_url = video_url
                 taskMapper.set_video_url(task.task_id, video_url=task.video_url)
+                taskMapper.set_success(task.task_id, video_path=execute_result.data)
                 logger.info(f"图片上传成功,task_id:{task.task_id},video_url:{task.video_url}")
                 _callback(task)
             elif execute_result.code == ErrorCode.TASK_COMPLETED:
