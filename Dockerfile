@@ -1,5 +1,5 @@
 # 使用官方 Python 镜像作为基础镜像
-FROM python:3.8
+FROM ubuntu
 
 # 设置工作目录
 WORKDIR /app
@@ -8,11 +8,12 @@ WORKDIR /app
 COPY . /app
 
 RUN apt-get update
+RUN apt-get install -y imagemagick ffmpeg
 RUN apt-get install -y nload
 RUN apt-get install -y htop
 RUN apt-get install -y wget
-
-
+RUN apt-get install -y python3
+RUN apt-get install -y pip
 # 安装项目依赖(国外服务器可去掉-i)
 RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple
 
